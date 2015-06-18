@@ -80,6 +80,7 @@ class Window : public mate::EventEmitter,
   void OnDevToolsFocus() override;
   void OnDevToolsOpened() override;
   void OnDevToolsClosed() override;
+  void OnExecuteWindowsCommand(int command_id) override;
 
  private:
   // APIs for NativeWindow.
