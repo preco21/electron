@@ -217,6 +217,7 @@ content::ServiceWorkerContext* GetServiceWorkerContext(
 
 WebContents::WebContents(content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
+      embedder_(nullptr),
       type_(REMOTE),
       request_id_(0),
       background_throttling_(true) {
@@ -792,6 +793,14 @@ bool WebContents::IsLoading() const {
   return web_contents()->IsLoading();
 }
 
+bool WebContents::IsLoadingMainFrame() const {
+  // Comparing site instances works because Electron always creates a new site
+  // instance when navigating, regardless of origin. See AtomBrowserClient.
+  return (web_contents()->GetLastCommittedURL().is_empty() ||
+          web_contents()->GetSiteInstance() !=
+          web_contents()->GetPendingSiteInstance()) && IsLoading();
+}
+
 bool WebContents::IsWaitingForResponse() const {
   return web_contents()->IsWaitingForResponse();
 }
@@ -848,14 +857,20 @@ void WebContents::OpenDevTools(mate::Arguments* args) {
   if (type_ == REMOTE)
     return;
 
-  bool detach = false;
+  std::string state;
   if (type_ == WEB_VIEW) {
-    detach = true;
+    state = "detach";
   } else if (args && args->Length() == 1) {
+    bool detach = false;
     mate::Dictionary options;
-    args->GetNext(&options) && options.Get("detach", &detach);
+    if (args->GetNext(&options)) {
+      options.Get("mode", &state);
+      options.Get("detach", &detach);
+      if (state.empty() && detach)
+        state = "detach";
+    }
   }
-  managed_web_contents()->SetCanDock(!detach);
+  managed_web_contents()->SetDockState(state);
   managed_web_contents()->ShowDevTools();
 }
 
@@ -1188,6 +1203,7 @@ void WebContents::BuildPrototype(v8::Isolate* isolate,
       .SetMethod("_getURL", &WebContents::GetURL)
       .SetMethod("getTitle", &WebContents::GetTitle)
       .SetMethod("isLoading", &WebContents::IsLoading)
+      .SetMethod("isLoadingMainFrame", &WebContents::IsLoadingMainFrame)
       .SetMethod("isWaitingForResponse", &WebContents::IsWaitingForResponse)
       .SetMethod("_stop", &WebContents::Stop)
       .SetMethod("_goBack", &WebContents::GoBack)
