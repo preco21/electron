@@ -97,7 +97,7 @@ It creates a new `BrowserWindow` with native properties as set by the `options`.
     this below.
 
 When setting minimum or maximum window size with `minWidth`/`maxWidth`/
-`minHeight`/`maxHeight`, it only constrains the users, it won't prevent you from
+`minHeight`/`maxHeight`, it only constraints the users, it won't prevent you from
 passing a size that does not follow size constraints to `setBounds`/`setSize` or
 to the constructor of `BrowserWindow`.
 
