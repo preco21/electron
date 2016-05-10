@@ -249,6 +249,15 @@ void App::OnFinishLaunching() {
   Emit("ready");
 }
 
+#if defined(OS_MACOSX)
+void App::OnContinueUserActivity(
+    bool* prevent_default,
+    const std::string& type,
+    const base::DictionaryValue& user_info) {
+  *prevent_default = Emit("continue-activity", type, user_info);
+}
+#endif
+
 void App::OnLogin(LoginHandler* login_handler) {
   v8::Locker locker(isolate());
   v8::HandleScope handle_scope(isolate());
@@ -460,6 +469,10 @@ void App::BuildPrototype(
 #if defined(OS_MACOSX)
       .SetMethod("hide", base::Bind(&Browser::Hide, browser))
       .SetMethod("show", base::Bind(&Browser::Show, browser))
+      .SetMethod("setUserActivity",
+                 base::Bind(&Browser::SetUserActivity, browser))
+      .SetMethod("getCurrentActivityType",
+                 base::Bind(&Browser::GetCurrentActivityType, browser))
 #endif
 #if defined(OS_WIN)
       .SetMethod("setUserTasks",

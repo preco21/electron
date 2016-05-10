@@ -71,6 +71,12 @@ class App : public AtomBrowserClient::Delegate,
   void OnWillFinishLaunching() override;
   void OnFinishLaunching() override;
   void OnLogin(LoginHandler* login_handler) override;
+#if defined(OS_MACOSX)
+  void OnContinueUserActivity(
+      bool* prevent_default,
+      const std::string& type,
+      const base::DictionaryValue& user_info) override;
+#endif
 
   // content::ContentBrowserClient:
   void AllowCertificateError(

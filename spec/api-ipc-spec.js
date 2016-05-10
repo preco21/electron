@@ -182,6 +182,10 @@ describe('ipc module', function () {
   })
 
   describe('ipc.sendSync', function () {
+    afterEach(function () {
+      ipcMain.removeAllListeners('send-sync-message')
+    })
+
     it('can be replied by setting event.returnValue', function () {
       var msg = ipcRenderer.sendSync('echo', 'test')
       assert.equal(msg, 'test')
@@ -194,6 +198,21 @@ describe('ipc module', function () {
         show: false
       })
       ipcMain.once('send-sync-message', function (event) {
+        event.returnValue = null
+        w.destroy()
+        done()
+      })
+      w.loadURL('file://' + path.join(fixtures, 'api', 'send-sync-message.html'))
+    })
+
+    it('does not crash when reply is sent by multiple listeners', function (done) {
+      var w = new BrowserWindow({
+        show: false
+      })
+      ipcMain.on('send-sync-message', function (event) {
+        event.returnValue = null
+      })
+      ipcMain.on('send-sync-message', function (event) {
         event.returnValue = null
         w.destroy()
         done()

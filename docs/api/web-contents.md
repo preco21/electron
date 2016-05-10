@@ -9,12 +9,12 @@ the [`BrowserWindow`](browser-window.md) object. An example of accessing the
 `webContents` object:
 
 ```javascript
-const BrowserWindow = require('electron').BrowserWindow;
+const { BrowserWindow } = require('electron');
 
-var win = new BrowserWindow({width: 800, height: 1500});
+let win = new BrowserWindow({width: 800, height: 1500});
 win.loadURL("http://github.com");
 
-var webContents = win.webContents;
+let webContents = win.webContents;
 ```
 
 ## Events
@@ -39,6 +39,8 @@ Returns:
 This event is like `did-finish-load` but emitted when the load failed or was
 cancelled, e.g. `window.stop()` is invoked.
 The full list of error codes and their meaning is available [here](https://code.google.com/p/chromium/codesearch#chromium/src/net/base/net_error_list.h).
+Note that redirect responses will emit `errorCode` -3; you may want to ignore
+that error explicitly.
 
 ### Event: 'did-frame-finish-load'
 
@@ -308,6 +310,63 @@ If the `type` parameter is `custom`, the `image` parameter will hold the custom
 cursor image in a `NativeImage`, and the `scale` will hold scaling information
 for the image.
 
+### Event: 'context-menu'
+
+Returns:
+
+* `event` Event
+* `params` Object
+  * `x` Integer - x coodinate
+  * `y` Integer - y coodinate
+  * `linkURL` String - URL of the link that encloses the node the context menu
+was invoked on.
+  * `linkText` String - Text associated with the link. May be an empty
+string if the contents of the link are an image.
+  * `pageURL` String - URL of the top level page that the context menu was
+invoked on.
+  * `frameURL` String - URL of the subframe that the context menu was invoked
+on.
+  * `srcURL` String - Source URL for the element that the context menu
+was invoked on. Elements with source URLs are images, audio and video.
+  * `mediaType` String - Type of the node the context menu was invoked on. Can
+be `none`, `image`, `audio`, `video`, `canvas`, `file` or `plugin`.
+  * `mediaFlags` Object - Parameters for the media element the context menu was
+invoked on.
+    * `inError` - Boolean
+    * `isPaused` - Boolean
+    * `isMuted` - Boolean
+    * `hasAudio` - Boolean
+    * `isLooping` - Boolean
+    * `isControlsVisible` - Boolean
+    * `canToggleControls` - Boolean
+    * `canRotate` - Boolean
+  * `hasImageContent` Boolean - Wether the context menu was invoked on an image
+which has non-empty contents.
+  * `isEditable` Boolean - Wether the context is editable.
+  * `editFlags` Object - These flags indicate wether the renderer believes it is
+able to perform the corresponding action.
+    * `canUndo` - Boolean
+    * `canRedo` - Boolean
+    * `canCut` - Boolean
+    * `canCopy` - Boolean
+    * `canPaste` - Boolean
+    * `canDelete` - Boolean
+    * `canSelectAll` - Boolean
+  * `selectionText` String - Text of the selection that the context menu was
+invoked on.
+  * `titleText` String - Title or alt text of the selection that the context
+was invoked on.
+  * `misspelledWord` String - The misspelled word under the cursor, if any.
+  * `frameCharset` String - The character encoding of the frame on which the
+menu was invoked.
+  * `inputFieldType` String - If the context menu was invoked on an input
+field, the type of that field. Possible values are `none`, `plainText`,
+`password`, `other`.
+  * `menuSourceType` String - Input source that invoked the context menu.
+Can be `none`, `mouse`, `keyboard`, `touch`, `touchMenu`.
+
+Emitted when there is a new context menu that needs to be handled.
+
 ## Instance Methods
 
 The `webContents` object has the following instance methods:
@@ -341,10 +400,10 @@ Initiates a download of the resource at `url` without navigating. The
 Returns URL of the current web page.
 
 ```javascript
-var win = new BrowserWindow({width: 800, height: 600});
+let win = new BrowserWindow({width: 800, height: 600});
 win.loadURL("http://github.com");
 
-var currentURL = win.webContents.getURL();
+let currentURL = win.webContents.getURL();
 ```
 
 ### `webContents.getTitle()`
@@ -614,22 +673,22 @@ By default, an empty `options` will be regarded as:
 ```
 
 ```javascript
-const BrowserWindow = require('electron').BrowserWindow;
+const { BrowserWindow } = require('electron');
 const fs = require('fs');
 
-var win = new BrowserWindow({width: 800, height: 600});
-win.loadURL("http://github.com");
+let win = new BrowserWindow({width: 800, height: 600});
+win.loadURL('http://github.com');
 
-win.webContents.on("did-finish-load", function() {
+win.webContents.on('did-finish-load', () => {
   // Use default printing options
-  win.webContents.printToPDF({}, function(error, data) {
+  win.webContents.printToPDF({}, (error, data) => {
     if (error) throw error;
-    fs.writeFile("/tmp/print.pdf", data, function(error) {
+    fs.writeFile('/tmp/print.pdf', data, (error) => {
       if (error)
         throw error;
-      console.log("Write PDF successfully.");
-    })
-  })
+      console.log('Write PDF successfully.');
+    });
+  });
 });
 ```
 
@@ -704,12 +763,13 @@ An example of sending messages from the main process to the renderer process:
 
 ```javascript
 // In the main process.
-var window = null;
-app.on('ready', function() {
-  window = new BrowserWindow({width: 800, height: 600});
-  window.loadURL('file://' + __dirname + '/index.html');
-  window.webContents.on('did-finish-load', function() {
-    window.webContents.send('ping', 'whoooooooh!');
+let mainWindow = null;
+
+app.on('ready', () => {
+  mainWindow = new BrowserWindow({width: 800, height: 600});
+  mainWindow.loadURL(`file://${__dirname}/index.html`);
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.send('ping', 'whoooooooh!');
   });
 });
 ```
@@ -719,7 +779,7 @@ app.on('ready', function() {
 <html>
 <body>
   <script>
-    require('electron').ipcRenderer.on('ping', function(event, message) {
+    require('electron').ipcRenderer.on('ping', (event, message) => {
       console.log(message);  // Prints "whoooooooh!"
     });
   </script>
@@ -835,8 +895,8 @@ Returns true if the process of saving page has been initiated successfully.
 ```javascript
 win.loadURL('https://github.com');
 
-win.webContents.on('did-finish-load', function() {
-  win.webContents.savePage('/tmp/test.html', 'HTMLComplete', function(error) {
+win.webContents.on('did-finish-load', () => {
+  win.webContents.savePage('/tmp/test.html', 'HTMLComplete', (error) => {
     if (!error)
       console.log("Save page successfully");
   });
@@ -873,13 +933,13 @@ try {
   console.log("Debugger attach failed : ", err);
 };
 
-win.webContents.debugger.on('detach', function(event, reason) {
+win.webContents.debugger.on('detach', (event, reason) => {
   console.log("Debugger detached due to : ", reason);
 });
 
-win.webContents.debugger.on('message', function(event, method, params) {
-  if (method == "Network.requestWillBeSent") {
-    if (params.request.url == "https://www.github.com")
+win.webContents.debugger.on('message', (event, method, params) => {
+  if (method === "Network.requestWillBeSent") {
+    if (params.request.url === "https://www.github.com")
       win.webContents.debugger.detach();
   }
 })

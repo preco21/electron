@@ -4,13 +4,13 @@
 
 ```javascript
 // In the main process.
-const BrowserWindow = require('electron').BrowserWindow;
+const { BrowserWindow } = require('electron');
 
 // Or in the renderer process.
-const BrowserWindow = require('electron').remote.BrowserWindow;
+const { BrowserWindow } = require('electron').remote;
 
-var win = new BrowserWindow({ width: 800, height: 600, show: false });
-win.on('closed', function() {
+let win = new BrowserWindow({ width: 800, height: 600, show: false });
+win.on('closed', () => {
   win = null;
 });
 
@@ -96,6 +96,11 @@ It creates a new `BrowserWindow` with native properties as set by the `options`.
   * `webPreferences` Object - Settings of web page's features. See more about
     this below.
 
+When setting minimum or maximum window size with `minWidth`/`maxWidth`/
+`minHeight`/`maxHeight`, it only constrains the users, it won't prevent you from
+passing a size that does not follow size constraints to `setBounds`/`setSize` or
+to the constructor of `BrowserWindow`.
+
 The possible values and behaviors of `type` option are platform dependent,
 supported values are:
 
@@ -165,6 +170,8 @@ The `webPreferences` option is an object that can have following properties:
   canvas features. Default is `false`.
 * `directWrite` Boolean - Enables DirectWrite font rendering system on
   Windows. Default is `true`.
+* `scrollBounce` Boolean - Enables scroll bounce (rubber banding) effect on
+  OS X. Default is `false`.
 * `blinkFeatures` String - A list of feature strings separated by `,`, like
   `CSSVariables,KeyboardEventKey`. The full list of supported feature strings
   can be found in the [setFeatureEnabledFromString][blink-feature-string]
@@ -315,7 +322,7 @@ Commands are lowercased with underscores replaced with hyphens and the
 e.g. `APPCOMMAND_BROWSER_BACKWARD` is emitted as `browser-backward`.
 
 ```javascript
-someWindow.on('app-command', function(e, cmd) {
+someWindow.on('app-command', (e, cmd) => {
   // Navigate the window back when the user hits their mouse back button
   if (cmd === 'browser-backward' && someWindow.webContents.canGoBack()) {
     someWindow.webContents.goBack();
