@@ -23,6 +23,11 @@ describe('crash-reporter module', function () {
     w.destroy()
   })
 
+  // It is not working on 64bit Windows.
+  if (process.platform === 'win32' && process.arch === 'x64') {
+    return
+  }
+
   if (process.mas) {
     return
   }
@@ -81,12 +86,12 @@ describe('crash-reporter module', function () {
         crashReporter.start({
           companyName: 'Missing submitURL'
         })
-      })
+      }, /submitURL is a required option to crashReporter\.start/)
       assert.throws(function () {
         crashReporter.start({
           submitURL: 'Missing companyName'
         })
-      })
+      }, /companyName is a required option to crashReporter\.start/)
     })
   })
 })

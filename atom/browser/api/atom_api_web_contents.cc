@@ -63,6 +63,7 @@
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request_context.h"
 #include "third_party/WebKit/public/web/WebInputEvent.h"
+#include "third_party/WebKit/public/web/WebFindOptions.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #include "atom/common/node_includes.h"
@@ -144,7 +145,7 @@ struct Converter<net::HttpResponseHeaders*> {
                                    net::HttpResponseHeaders* headers) {
     base::DictionaryValue response_headers;
     if (headers) {
-      void* iter = nullptr;
+      size_t iter = 0;
       std::string key;
       std::string value;
       while (headers->EnumerateHeaderLines(&iter, &key, &value)) {
@@ -273,7 +274,7 @@ WebContents::WebContents(v8::Isolate* isolate,
   }
 
   Observe(web_contents);
-  InitWithWebContents(web_contents);
+  InitWithWebContents(web_contents, session->browser_context());
 
   managed_web_contents()->GetView()->SetDelegate(this);
 
@@ -378,7 +379,7 @@ void WebContents::MoveContents(content::WebContents* source,
 
 void WebContents::CloseContents(content::WebContents* source) {
   Emit("close");
-  if (type_ == BROWSER_WINDOW)
+  if (type_ == BROWSER_WINDOW && owner_window())
     owner_window()->CloseContents(source);
 }
 
@@ -393,14 +394,12 @@ bool WebContents::IsPopupOrPanel(const content::WebContents* source) const {
 void WebContents::HandleKeyboardEvent(
     content::WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
-  if (event.windowsKeyCode == ui::VKEY_ESCAPE && is_html_fullscreen()) {
-    // Escape exits tabbed fullscreen mode.
-    ExitFullscreenModeForTab(source);
-  } else if (type_ == BROWSER_WINDOW) {
-    owner_window()->HandleKeyboardEvent(source, event);
-  } else if (type_ == WEB_VIEW && guest_delegate_) {
+  if (type_ == WEB_VIEW && embedder_) {
     // Send the unhandled keyboard events back to the embedder.
-    guest_delegate_->HandleKeyboardEvent(source, event);
+    embedder_->HandleKeyboardEvent(source, event);
+  } else {
+    // Go to the default keyboard handling.
+    CommonWebContentsDelegate::HandleKeyboardEvent(source, event);
   }
 }
 
@@ -429,13 +428,13 @@ void WebContents::ExitFullscreenModeForTab(content::WebContents* source) {
 
 void WebContents::RendererUnresponsive(content::WebContents* source) {
   Emit("unresponsive");
-  if (type_ == BROWSER_WINDOW)
+  if (type_ == BROWSER_WINDOW && owner_window())
     owner_window()->RendererUnresponsive(source);
 }
 
 void WebContents::RendererResponsive(content::WebContents* source) {
   Emit("responsive");
-  if (type_ == BROWSER_WINDOW)
+  if (type_ == BROWSER_WINDOW && owner_window())
     owner_window()->RendererResponsive(source);
 }
 
@@ -865,7 +864,7 @@ void WebContents::OpenDevTools(mate::Arguments* args) {
     return;
 
   std::string state;
-  if (type_ == WEB_VIEW) {
+  if (type_ == WEB_VIEW || !owner_window()) {
     state = "detach";
   } else if (args && args->Length() == 1) {
     bool detach = false;
@@ -1173,6 +1172,10 @@ v8::Local<v8::Value> WebContents::GetOwnerBrowserWindow() {
     return v8::Null(isolate());
 }
 
+int32_t WebContents::ID() const {
+  return weak_map_id();
+}
+
 v8::Local<v8::Value> WebContents::Session(v8::Isolate* isolate) {
   return v8::Local<v8::Value>::New(isolate, session_);
 }
@@ -1265,6 +1268,7 @@ void WebContents::BuildPrototype(v8::Isolate* isolate,
       .SetMethod("_printToPDF", &WebContents::PrintToPDF)
       .SetMethod("addWorkSpace", &WebContents::AddWorkSpace)
       .SetMethod("removeWorkSpace", &WebContents::RemoveWorkSpace)
+      .SetProperty("id", &WebContents::ID)
       .SetProperty("session", &WebContents::Session)
       .SetProperty("hostWebContents", &WebContents::HostWebContents)
       .SetProperty("devToolsWebContents", &WebContents::DevToolsWebContents)

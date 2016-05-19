@@ -17,7 +17,7 @@
 #include "atom/common/options_switches.h"
 #include "base/files/file_util.h"
 #include "base/json/json_writer.h"
-#include "base/prefs/pref_service.h"
+#include "components/prefs/pref_service.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "brightray/browser/inspectable_web_contents.h"
@@ -49,7 +49,6 @@ NativeWindow::NativeWindow(
     const mate::Dictionary& options)
     : content::WebContentsObserver(inspectable_web_contents->GetWebContents()),
       has_frame_(true),
-      force_using_draggable_region_(false),
       transparent_(false),
       enable_larger_than_screen_(false),
       is_closed_(false),
@@ -318,9 +317,9 @@ void NativeWindow::CapturePage(const gfx::Rect& rect,
   // current system, increase the requested bitmap size to capture it all.
   gfx::Size bitmap_size = view_size;
   const gfx::NativeView native_view = view->GetNativeView();
-  gfx::Screen* const screen = gfx::Screen::GetScreenFor(native_view);
   const float scale =
-      screen->GetDisplayNearestWindow(native_view).device_scale_factor();
+      gfx::Screen::GetScreen()->GetDisplayNearestWindow(native_view)
+      .device_scale_factor();
   if (scale > 1.0f)
     bitmap_size = gfx::ScaleToCeiledSize(view_size, scale);
 
@@ -412,7 +411,7 @@ void NativeWindow::RendererUnresponsive(content::WebContents* source) {
   // responsive event soon. This could happen after the whole application had
   // blocked for a while.
   // Also notice that when closing this event would be ignored because we have
-  // explicity started a close timeout counter. This is on purpose because we
+  // explicitly started a close timeout counter. This is on purpose because we
   // don't want the unresponsive event to be sent too early when user is closing
   // the window.
   ScheduleUnresponsiveEvent(50);
@@ -573,7 +572,7 @@ bool NativeWindow::OnMessageReceived(const IPC::Message& message) {
 void NativeWindow::UpdateDraggableRegions(
     const std::vector<DraggableRegion>& regions) {
   // Draggable region is not supported for non-frameless window.
-  if (has_frame_ && !force_using_draggable_region_)
+  if (has_frame_)
     return;
   draggable_region_ = DraggableRegionsToSkRegion(regions);
 }

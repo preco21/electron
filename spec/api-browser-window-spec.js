@@ -824,6 +824,54 @@ describe('browser-window module', function () {
   })
 
   describe('dev tool extensions', function () {
+    describe('BrowserWindow.addDevToolsExtension', function () {
+      this.timeout(10000)
+
+      beforeEach(function () {
+        BrowserWindow.removeDevToolsExtension('foo')
+
+        var extensionPath = path.join(__dirname, 'fixtures', 'devtools-extensions', 'foo')
+        BrowserWindow.addDevToolsExtension(extensionPath)
+
+        w.webContents.on('devtools-opened', function () {
+          var showPanelIntevalId = setInterval(function () {
+            if (w && w.devToolsWebContents) {
+              w.devToolsWebContents.executeJavaScript('(' + (function () {
+                var lastPanelId = WebInspector.inspectorView._tabbedPane._tabs.peekLast().id
+                WebInspector.inspectorView.showPanel(lastPanelId)
+              }).toString() + ')()')
+            } else {
+              clearInterval(showPanelIntevalId)
+            }
+          }, 100)
+        })
+
+        w.loadURL('about:blank')
+      })
+
+      describe('when the devtools is docked', function () {
+        it('creates the extension', function (done) {
+          w.webContents.openDevTools({mode: 'bottom'})
+
+          ipcMain.once('answer', function (event, message) {
+            assert.equal(message, 'extension loaded')
+            done()
+          })
+        })
+      })
+
+      describe('when the devtools is undocked', function () {
+        it('creates the extension', function (done) {
+          w.webContents.openDevTools({mode: 'undocked'})
+
+          ipcMain.once('answer', function (event, message) {
+            assert.equal(message, 'extension loaded')
+            done()
+          })
+        })
+      })
+    })
+
     it('serializes the registered extensions on quit', function () {
       var extensionName = 'foo'
       var extensionPath = path.join(__dirname, 'fixtures', 'devtools-extensions', extensionName)
@@ -878,26 +926,6 @@ describe('browser-window module', function () {
         done()
       })
       w.loadURL(server.url)
-    })
-  })
-
-  describe('deprecated options', function () {
-    it('throws a deprecation error for option keys using hyphens instead of camel case', function () {
-      assert.throws(function () {
-        return new BrowserWindow({'min-width': 500})
-      }, 'min-width is deprecated. Use minWidth instead.')
-    })
-
-    it('throws a deprecation error for webPreference keys using hyphens instead of camel case', function () {
-      assert.throws(function () {
-        return new BrowserWindow({webPreferences: {'node-integration': false}})
-      }, 'node-integration is deprecated. Use nodeIntegration instead.')
-    })
-
-    it('throws a deprecation error for option keys that should be set on webPreferences', function () {
-      assert.throws(function () {
-        return new BrowserWindow({zoomFactor: 1})
-      }, 'options.zoomFactor is deprecated. Use options.webPreferences.zoomFactor instead.')
     })
   })
 })

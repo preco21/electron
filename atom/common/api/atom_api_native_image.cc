@@ -63,7 +63,7 @@ float GetScaleFactorFromPath(const base::FilePath& path) {
 
   // We don't try to convert string to float here because it is very very
   // expensive.
-  for (unsigned i = 0; i < arraysize(kScaleFactorPairs); ++i) {
+  for (unsigned i = 0; i < node::arraysize(kScaleFactorPairs); ++i) {
     if (base::EndsWith(filename, kScaleFactorPairs[i].name,
                        base::CompareCase::INSENSITIVE_ASCII))
       return kScaleFactorPairs[i].scale;
@@ -318,7 +318,6 @@ void NativeImage::BuildPrototype(
       .SetMethod("toJpeg", &NativeImage::ToJPEG)
       .SetMethod("getNativeHandle", &NativeImage::GetNativeHandle)
       .SetMethod("toDataURL", &NativeImage::ToDataURL)
-      .SetMethod("toDataUrl", &NativeImage::ToDataURL)  // deprecated.
       .SetMethod("isEmpty", &NativeImage::IsEmpty)
       .SetMethod("getSize", &NativeImage::GetSize)
       .SetMethod("setTemplateImage", &NativeImage::SetTemplateImage)
