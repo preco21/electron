@@ -13,12 +13,16 @@ This method returns `true` if the system is in Dark Mode, and `false` otherwise.
 * `event` String
 * `callback` Function
 
-Subscribes to native notifications of OS X, `callback` will be called when the
-corresponding `event` happens. The `id` of the subscriber is returned, which can
-be used to unsubscribe the `event`.
+Subscribes to native notifications of OS X, `callback` will be called with
+`callback(event, userInfo)` when the corresponding `event` happens. The
+`userInfo` is an Object that contains the user information dictionary sent
+along with the notification.
+
+The `id` of the subscriber is returned, which can be used to unsubscribe the
+`event`.
 
 Under the hood this API subscribes to `NSDistributedNotificationCenter`,
-possible values of `event` are:
+example values of `event` are:
 
 * `AppleInterfaceThemeChangedNotification`
 * `AppleAquaColorVariantChanged`
@@ -35,7 +39,7 @@ Removes the subscriber with `id`.
 
 * `key` String
 * `type` String - Can be `string`, `boolean`, `integer`, `float`, `double`,
-  `url`.
+  `url`, `array`, `dictionary`
 
 Get the value of `key` in system preferences.
 
@@ -46,6 +50,9 @@ are:
 * `AppleAquaColorVariant: integer`
 * `AppleHighlightColor: string`
 * `AppleShowScrollBars: string`
+* `NSNavRecentPlaces: array`
+* `NSPreferredWebServices: dictionary`
+* `NSUserDictionaryReplacementItems: array`
 
 ### `systemPreferences.isAeroGlassEnabled()` _Windows_
 

@@ -3,11 +3,8 @@
 const assert = require('assert')
 const path = require('path')
 
-const ipcRenderer = require('electron').ipcRenderer
-const remote = require('electron').remote
-
-const ipcMain = remote.require('electron').ipcMain
-const BrowserWindow = remote.require('electron').BrowserWindow
+const {ipcRenderer, remote} = require('electron')
+const {ipcMain, webContents, BrowserWindow} = remote
 
 const comparePaths = function (path1, path2) {
   if (process.platform === 'win32') {
@@ -30,6 +27,13 @@ describe('ipc module', function () {
     it('should work when object contains id property', function () {
       var a = remote.require(path.join(fixtures, 'module', 'id.js'))
       assert.equal(a.id, 1127)
+    })
+
+    it('should work when object has no prototype', function () {
+      var a = remote.require(path.join(fixtures, 'module', 'no-prototype.js'))
+      assert.equal(a.foo.bar, 'baz')
+      assert.equal(a.foo.baz, false)
+      assert.equal(a.bar, 1234)
     })
 
     it('should search module from the user app', function () {
@@ -103,6 +107,22 @@ describe('ipc module', function () {
       var promise = remote.require(path.join(fixtures, 'module', 'promise.js'))
       promise.twicePromise(Promise.resolve(1234)).then(function (value) {
         assert.equal(value, 2468)
+        done()
+      })
+    })
+
+    it('handles rejections via catch(onRejected)', function (done) {
+      var promise = remote.require(path.join(fixtures, 'module', 'rejected-promise.js'))
+      promise.reject(Promise.resolve(1234)).catch(function (error) {
+        assert.equal(error.message, 'rejected')
+        done()
+      })
+    })
+
+    it('handles rejections via then(onFulfilled, onRejected)', function (done) {
+      var promise = remote.require(path.join(fixtures, 'module', 'rejected-promise.js'))
+      promise.reject(Promise.resolve(1234)).then(function () {}, function (error) {
+        assert.equal(error.message, 'rejected')
         done()
       })
     })
@@ -218,6 +238,30 @@ describe('ipc module', function () {
         done()
       })
       w.loadURL('file://' + path.join(fixtures, 'api', 'send-sync-message.html'))
+    })
+  })
+
+  describe('ipcRenderer.sendTo', function () {
+    let contents = null
+    beforeEach(function () {
+      contents = webContents.create({})
+    })
+    afterEach(function () {
+      ipcRenderer.removeAllListeners('pong')
+      contents.destroy()
+      contents = null
+    })
+
+    it('sends message to WebContents', function (done) {
+      const webContentsId = remote.getCurrentWebContents().id
+      ipcRenderer.once('pong', function (event, id) {
+        assert.equal(webContentsId, id)
+        done()
+      })
+      contents.once('did-finish-load', function () {
+        ipcRenderer.sendTo(contents.id, 'ping', webContentsId)
+      })
+      contents.loadURL('file://' + path.join(fixtures, 'pages', 'ping-pong.html'))
     })
   })
 

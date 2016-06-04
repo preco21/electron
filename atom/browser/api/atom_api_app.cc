@@ -14,6 +14,8 @@
 #include "atom/browser/atom_browser_main_parts.h"
 #include "atom/browser/browser.h"
 #include "atom/browser/login_handler.h"
+#include "atom/browser/relauncher.h"
+#include "atom/common/atom_command_line.h"
 #include "atom/common/native_mate_converters/callback.h"
 #include "atom/common/native_mate_converters/file_path_converter.h"
 #include "atom/common/native_mate_converters/gurl_converter.h"
@@ -319,7 +321,7 @@ void App::AllowCertificateError(
 void App::SelectClientCertificate(
     content::WebContents* web_contents,
     net::SSLCertRequestInfo* cert_request_info,
-    scoped_ptr<content::ClientCertificateDelegate> delegate) {
+    std::unique_ptr<content::ClientCertificateDelegate> delegate) {
   std::shared_ptr<content::ClientCertificateDelegate>
       shared_delegate(delegate.release());
   bool prevent_default =
@@ -370,15 +372,9 @@ void App::SetPath(mate::Arguments* args,
 
 void App::SetDesktopName(const std::string& desktop_name) {
 #if defined(OS_LINUX)
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->SetVar("CHROME_DESKTOP", desktop_name);
 #endif
-}
-
-void App::AllowNTLMCredentialsForAllDomains(bool should_allow) {
-  auto browser_context = static_cast<AtomBrowserContext*>(
-        AtomBrowserMainParts::Get()->browser_context());
-  browser_context->AllowNTLMCredentialsForAllDomains(should_allow);
 }
 
 std::string App::GetLocale() {
@@ -407,13 +403,57 @@ bool App::MakeSingleInstance(
   }
 }
 
+void App::ReleaseSingleInstance() {
+  if (process_singleton_.get()) {
+    process_singleton_->Cleanup();
+    process_singleton_.reset();
+  }
+}
+
+bool App::Relaunch(mate::Arguments* js_args) {
+  // Parse parameters.
+  bool override_argv = false;
+  base::FilePath exec_path;
+  relauncher::StringVector args;
+
+  mate::Dictionary options;
+  if (js_args->GetNext(&options)) {
+    if (options.Get("execPath", &exec_path) | options.Get("args", &args))
+      override_argv = true;
+  }
+
+  if (!override_argv) {
+#if defined(OS_WIN)
+    const relauncher::StringVector& argv = atom::AtomCommandLine::wargv();
+#else
+    const relauncher::StringVector& argv = atom::AtomCommandLine::argv();
+#endif
+    return relauncher::RelaunchApp(argv);
+  }
+
+  relauncher::StringVector argv;
+  argv.reserve(1 + args.size());
+
+  if (exec_path.empty()) {
+    base::FilePath current_exe_path;
+    PathService::Get(base::FILE_EXE, &current_exe_path);
+    argv.push_back(current_exe_path.value());
+  } else {
+    argv.push_back(exec_path.value());
+  }
+
+  argv.insert(argv.end(), args.begin(), args.end());
+
+  return relauncher::RelaunchApp(argv);
+}
+
 #if defined(USE_NSS_CERTS)
 void App::ImportCertificate(
     const base::DictionaryValue& options,
     const net::CompletionCallback& callback) {
   auto browser_context = AtomBrowserMainParts::Get()->browser_context();
   if (!certificate_manager_model_) {
-    scoped_ptr<base::DictionaryValue> copy = options.CreateDeepCopy();
+    std::unique_ptr<base::DictionaryValue> copy = options.CreateDeepCopy();
     CertificateManagerModel::Create(browser_context,
         base::Bind(&App::OnCertificateManagerModelCreated,
                    base::Unretained(this),
@@ -427,9 +467,9 @@ void App::ImportCertificate(
 }
 
 void App::OnCertificateManagerModelCreated(
-    scoped_ptr<base::DictionaryValue> options,
+    std::unique_ptr<base::DictionaryValue> options,
     const net::CompletionCallback& callback,
-    scoped_ptr<CertificateManagerModel> model) {
+    std::unique_ptr<CertificateManagerModel> model) {
   certificate_manager_model_ = std::move(model);
   int rv = ImportIntoCertStore(certificate_manager_model_.get(),
                                *(options.get()));
@@ -482,13 +522,13 @@ void App::BuildPrototype(
       .SetMethod("setPath", &App::SetPath)
       .SetMethod("getPath", &App::GetPath)
       .SetMethod("setDesktopName", &App::SetDesktopName)
-      .SetMethod("allowNTLMCredentialsForAllDomains",
-                 &App::AllowNTLMCredentialsForAllDomains)
       .SetMethod("getLocale", &App::GetLocale)
 #if defined(USE_NSS_CERTS)
       .SetMethod("importCertificate", &App::ImportCertificate)
 #endif
-      .SetMethod("makeSingleInstance", &App::MakeSingleInstance);
+      .SetMethod("makeSingleInstance", &App::MakeSingleInstance)
+      .SetMethod("releaseSingleInstance", &App::ReleaseSingleInstance)
+      .SetMethod("relaunch", &App::Relaunch);
 }
 
 }  // namespace api

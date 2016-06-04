@@ -34,10 +34,12 @@ Emitted when Electron has finished initialization.
 
 Emitted when all windows have been closed.
 
-This event is only emitted when the application is not going to quit. If the
-user pressed `Cmd + Q`, or the developer called `app.quit()`, Electron will
-first try to close all the windows and then emit the `will-quit` event, and in
-this case the `window-all-closed` event would not be emitted.
+If you do not subscribe to this event and all windows are closed, the default
+behavior is to quit the app; however, if you subscribe, you control whether the
+app quits or not. If the user pressed `Cmd + Q`, or the developer called
+`app.quit()`, Electron will first try to close all the windows and then emit the
+`will-quit` event, and in this case the `window-all-closed` event would not be
+emitted.
 
 ### Event: 'before-quit'
 
@@ -87,7 +89,8 @@ handle this case (even before the `ready` event is emitted).
 
 You should call `event.preventDefault()` if you want to handle this event.
 
-On Windows, you have to parse `process.argv` (in the main process) to get the filepath.
+On Windows, you have to parse `process.argv` (in the main process) to get the
+filepath.
 
 ### Event: 'open-url' _OS X_
 
@@ -108,8 +111,8 @@ Returns:
 * `event` Event
 * `hasVisibleWindows` Boolean
 
-Emitted when the application is activated, which usually happens when the user clicks on
-the application's dock icon.
+Emitted when the application is activated, which usually happens when the user
+clicks on the application's dock icon.
 
 ### Event: 'continue-activity' _OS X_
 
@@ -251,7 +254,8 @@ Emitted when the gpu process crashes.
 
 The `app` object has the following methods:
 
-**Note:** Some methods are only available on specific operating systems and are labeled as such.
+**Note:** Some methods are only available on specific operating systems and are
+labeled as such.
 
 ### `app.quit()`
 
@@ -272,6 +276,33 @@ Exits immediately with `exitCode`.
 All windows will be closed immediately without asking user and the `before-quit`
 and `will-quit` events will not be emitted.
 
+### `app.relaunch([options])`
+
+* `options` Object (optional)
+  * `args` Array (optional)
+  * `execPath` String (optional)
+
+Relaunches the app when current instance exits.
+
+By default the new instance will use the same working directory and command line
+arguments with current instance. When `args` is specified, the `args` will be
+passed as command line arguments instead. When `execPath` is specified, the
+`execPath` will be executed for relaunch instead of current app.
+
+Note that this method does not quit the app when executed, you have to call
+`app.quit` or `app.exit` after calling `app.relaunch` to make the app restart.
+
+When `app.relaunch` is called for multiple times, multiple instances will be
+started after current instance exited.
+
+An example of restarting current instance immediately and adding a new command
+line argument to the new instance:
+
+```javascript
+app.relaunch({args: process.argv.slice(1) + ['--relaunch']})
+app.exit(0)
+```
+
 ### `app.focus()`
 
 On Linux, focuses on the first visible window. On OS X, makes the application
@@ -283,7 +314,8 @@ Hides all application windows without minimizing them.
 
 ### `app.show()` _OS X_
 
-Shows application windows after they were hidden. Does not automatically focus them.
+Shows application windows after they were hidden. Does not automatically focus
+them.
 
 ### `app.getAppPath()`
 
@@ -397,8 +429,8 @@ The API uses the Windows Registry and LSSetDefaultHandlerForURLScheme internally
 
 * `protocol` String - The name of your protocol, without `://`.
 
-This method checks if the current executable as the default handler for a protocol
-(aka URI scheme). If so, it will remove the app as the default handler.
+This method checks if the current executable as the default handler for a
+protocol (aka URI scheme). If so, it will remove the app as the default handler.
 
 ### `app.isDefaultProtocolClient(protocol)` _OS X_ _Windows_
 
@@ -407,8 +439,11 @@ This method checks if the current executable as the default handler for a protoc
 This method checks if the current executable is the default handler for a protocol
 (aka URI scheme). If so, it will return true. Otherwise, it will return false.
 
-**Note:** On OS X, you can use this method to check if the app has been registered as the default protocol handler for a protocol. You can also verify this by checking `~/Library/Preferences/com.apple.LaunchServices.plist` on the OS X machine.
-Please refer to [Apple's documentation][LSCopyDefaultHandlerForURLScheme] for details.
+**Note:** On OS X, you can use this method to check if the app has been
+registered as the default protocol handler for a protocol. You can also verify
+this by checking `~/Library/Preferences/com.apple.LaunchServices.plist` on the
+OS X machine. Please refer to
+[Apple's documentation][LSCopyDefaultHandlerForURLScheme] for details.
 
 The API uses the Windows Registry and LSCopyDefaultHandlerForURLScheme internally.
 
@@ -434,16 +469,6 @@ Adds `tasks` to the [Tasks][tasks] category of the JumpList on Windows.
 * `iconIndex` Integer - The icon index in the icon file. If an icon file
   consists of two or more icons, set this value to identify the icon. If an
   icon file consists of one icon, this value is 0.
-
-### `app.allowNTLMCredentialsForAllDomains(allow)`
-
-* `allow` Boolean
-
-Dynamically sets whether to always send credentials for HTTP NTLM or Negotiate
-authentication - normally, Electron will only send NTLM/Kerberos credentials for
-URLs that fall under "Local Intranet" sites (i.e. are in the same domain as you).
-However, this detection often fails when corporate networks are badly configured,
-so this lets you co-opt this behavior and enable it for all URLs.
 
 ### `app.makeSingleInstance(callback)`
 
@@ -498,11 +523,18 @@ app.on('ready', () => {
 });
 ```
 
-### `app.setUserActivity(type, userInfo)` _OS X_
+### `app.releaseSingleInstance()`
+
+Releases all locks that were created by `makeSingleInstance`. This will allow
+multiple instances of the application to once again run side by side.
+
+### `app.setUserActivity(type, userInfo[, webpageURL])` _OS X_
 
 * `type` String - Uniquely identifies the activity. Maps to
   [`NSUserActivity.activityType`][activity-type].
 * `userInfo` Object - App-specific state to store for use by another device.
+* `webpageURL` String - The webpage to load in a browser if no suitable app is
+  installed on the resuming device. The scheme must be `http` or `https`.
 
 Creates an `NSUserActivity` and sets it as the current activity. The activity
 is eligible for [Handoff][handoff] to another device afterward.

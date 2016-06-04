@@ -1,31 +1,50 @@
 const assert = require('assert')
 const ChildProcess = require('child_process')
 const https = require('https')
+const net = require('net')
 const fs = require('fs')
 const path = require('path')
-const remote = require('electron').remote
+const {remote} = require('electron')
 
-const app = remote.require('electron').app
-const BrowserWindow = remote.require('electron').BrowserWindow
+const {app, BrowserWindow, ipcMain} = remote
 const isCI = remote.getGlobal('isCi')
 
 describe('electron module', function () {
-  it('allows old style require by default', function () {
-    require('shell')
+  it('does not expose internal modules to require', function () {
+    assert.throws(function () {
+      require('clipboard')
+    }, /Cannot find module 'clipboard'/)
   })
 
-  it('can prevent exposing internal modules to require', function (done) {
-    const electron = require('electron')
-    const clipboard = require('clipboard')
-    assert.equal(typeof clipboard, 'object')
-    electron.hideInternalModules()
-    try {
-      require('clipboard')
-    } catch (err) {
-      assert.equal(err.message, "Cannot find module 'clipboard'")
-      done()
-    }
+  describe('require("electron")', function () {
+    let window = null
+
+    beforeEach(function () {
+      if (window != null) {
+        window.destroy()
+      }
+      window = new BrowserWindow({
+        show: false,
+        width: 400,
+        height: 400
+      })
+    })
+
+    afterEach(function () {
+      if (window != null) {
+        window.destroy()
+      }
+      window = null
+    })
+
+    it('always returns the internal electron module', function (done) {
+      ipcMain.once('answer', function () {
+        done()
+      })
+      window.loadURL('file://' + path.join(__dirname, 'fixtures', 'api', 'electron-module-app', 'index.html'))
+    })
   })
+
 })
 
 describe('app module', function () {
@@ -87,6 +106,55 @@ describe('app module', function () {
         assert.equal(code, 123)
         done()
       })
+    })
+  })
+
+  describe('app.relaunch', function () {
+    let server = null
+    const socketPath = process.platform === 'win32' ?
+      '\\\\.\\pipe\\electron-app-relaunch' :
+      '/tmp/electron-app-relaunch'
+
+    beforeEach(function (done) {
+      fs.unlink(socketPath, (error) => {
+        server = net.createServer()
+        server.listen(socketPath)
+        done()
+      })
+    })
+
+    afterEach(function (done) {
+      server.close(() => {
+        if (process.platform === 'win32') {
+          done()
+        } else {
+          fs.unlink(socketPath, (error) => {
+            done()
+          })
+        }
+      })
+    })
+
+    it('relaunches the app', function (done) {
+      this.timeout(100000)
+      let state = 'none'
+      server.once('error', (error) => {
+        done(error)
+      })
+      server.on('connection', (client) => {
+        client.once('data', function (data) {
+          if (String(data) === 'false' && state === 'none') {
+            state = 'first-launch'
+          } else if (String(data) === 'true' && state === 'first-launch') {
+            done()
+          } else {
+            done(`Unexpected state: ${state}`)
+          }
+        })
+      })
+
+      const appPath = path.join(__dirname, 'fixtures', 'api', 'relaunch')
+      ChildProcess.spawn(remote.process.execPath, [appPath])
     })
   })
 
